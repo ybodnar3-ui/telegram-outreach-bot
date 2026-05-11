@@ -26,7 +26,9 @@ See config.py for the full list.
 """
 
 import asyncio
+import base64
 import csv
+import gzip
 import logging
 import os
 import signal
@@ -85,6 +87,25 @@ async def sleep_until_8am():
 
 
 # ─── STARTUP CHECKS ──────────────────────────────────────────────────────────
+
+def decode_sessions_from_env():
+    """Decode any TELEGRAM_SESSION_N env vars (gzip+base64) into SESSIONS_DIR."""
+    os.makedirs(SESSIONS_DIR, exist_ok=True)
+    for account in ACCOUNTS:
+        idx = account["label"].split("_")[1]
+        env_var = f"TELEGRAM_SESSION_{idx}"
+        phone = account["phone"].lstrip("+")
+        dest = os.path.join(SESSIONS_DIR, f"{phone}.session")
+        val = os.environ.get(env_var, "").strip()
+        if val and not os.path.exists(dest):
+            try:
+                data = gzip.decompress(base64.b64decode(val))
+                with open(dest, "wb") as f:
+                    f.write(data)
+                logger.info(f"Decoded session from env {env_var} → {phone}.session ({len(data)} bytes)")
+            except Exception as e:
+                logger.error(f"Failed to decode {env_var}: {e}")
+
 
 def validate_environment():
     """Fail fast at startup if anything critical is missing."""
@@ -327,6 +348,7 @@ async def main():
     for sig in (signal.SIGTERM, signal.SIGHUP):
         loop.add_signal_handler(sig, lambda s=sig: _on_signal(s.name))
 
+    decode_sessions_from_env()
     clients = await connect_clients()
 
     CYCLE_ERROR_SLEEP = 300  # 5 min cooldown after unexpected cycle crash
