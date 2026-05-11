@@ -127,6 +127,7 @@ MEMBER_FETCH_LIMIT = 200
 
 SESSIONS_DIR      = os.path.join(DATA_DIR, "sessions")
 SENT_CSV_PATH     = os.path.join(DATA_DIR, "sent.csv")
+LEADS_CSV_PATH    = os.path.join(DATA_DIR, "leads_latest.csv")
 MESSAGE_FILE_PATH = "message.txt"
 
 # ─── CSV SCHEMA ──────────────────────────────────────────────────────────────

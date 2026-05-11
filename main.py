@@ -39,7 +39,7 @@ from datetime import datetime, timedelta, timezone
 from telethon import TelegramClient
 from telethon.errors import PeerFloodError
 
-from config import ACCOUNTS, SESSIONS_DIR, SENT_CSV_PATH, CSV_HEADERS, MESSAGE_FILE_PATH, PRIORITY_GROUPS
+from config import ACCOUNTS, SESSIONS_DIR, SENT_CSV_PATH, LEADS_CSV_PATH, CSV_HEADERS, MESSAGE_FILE_PATH, PRIORITY_GROUPS
 from account_manager import AccountManager, AllAccountsExhaustedError
 from group_finder import find_groups
 from member_parser import parse_members
@@ -339,6 +339,23 @@ async def run_daily_cycle(clients):
     all_members = unique_members
 
     logger.info(f"Total leads collected: {len(all_members)}")
+
+    # Save full lead database to CSV for export/review
+    try:
+        with open(LEADS_CSV_PATH, "w", newline="", encoding="utf-8-sig") as f:
+            writer = csv.DictWriter(f, fieldnames=["username", "full_name", "group_title", "group_username", "telegram_link"])
+            writer.writeheader()
+            for m in all_members:
+                writer.writerow({
+                    "username": m.get("username", ""),
+                    "full_name": m.get("full_name", ""),
+                    "group_title": m.get("group_title", ""),
+                    "group_username": m.get("group_username", ""),
+                    "telegram_link": f"https://t.me/{m['username']}" if m.get("username") else "",
+                })
+        logger.info(f"Leads saved to {LEADS_CSV_PATH}")
+    except Exception as e:
+        logger.warning(f"Could not save leads CSV: {e}")
 
     if not all_members:
         logger.info("No leads found this cycle.")
