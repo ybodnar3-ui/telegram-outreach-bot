@@ -6,7 +6,8 @@ from datetime import datetime
 
 from telethon.errors import (
     FloodWaitError, UserPrivacyRestrictedError, PeerFloodError,
-    InputUserDeactivatedError,
+    InputUserDeactivatedError, UsernameInvalidError, UsernameNotOccupiedError,
+    UserNotMutualContactError,
 )
 from telethon.tl.types import InputPeerUser
 
@@ -62,6 +63,12 @@ async def send_dm(client, recipient, csv_lock, already_sent, account_label):
             return False
     except UserPrivacyRestrictedError:
         logger.info(f"SKIP {display}: privacy restricted")
+        return False
+    except UserNotMutualContactError:
+        logger.info(f"SKIP {display}: requires mutual contact")
+        return False
+    except (UsernameInvalidError, UsernameNotOccupiedError):
+        logger.info(f"SKIP {display}: username no longer valid")
         return False
     except InputUserDeactivatedError:
         logger.info(f"SKIP {display}: account deleted")

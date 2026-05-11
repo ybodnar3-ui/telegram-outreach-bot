@@ -192,7 +192,15 @@ def ensure_csv_headers():
 
 def make_client(account):
     session_path = os.path.join(SESSIONS_DIR, account["phone"].lstrip("+"))
-    return TelegramClient(session_path, account["api_id"], account["api_hash"])
+    return TelegramClient(
+        session_path,
+        account["api_id"],
+        account["api_hash"],
+        connection_retries=-1,      # reconnect indefinitely on Railway network drops
+        retry_delay=5,              # 5s between reconnect attempts
+        flood_sleep_threshold=300,  # auto-absorb FloodWait up to 5 min silently
+        receive_updates=False,      # bot only sends — skip incoming update processing
+    )
 
 
 async def connect_clients():
