@@ -199,7 +199,6 @@ def make_client(account):
         connection_retries=-1,      # reconnect indefinitely on Railway network drops
         retry_delay=5,              # 5s between reconnect attempts
         flood_sleep_threshold=300,  # auto-absorb FloodWait up to 5 min silently
-        receive_updates=False,      # bot only sends — skip incoming update processing
     )
 
 
@@ -375,14 +374,16 @@ async def run_daily_cycle(clients):
                     "telegram_link": f"https://t.me/{m['username']}" if m.get("username") else "",
                 })
         logger.info(f"Leads saved to {LEADS_CSV_PATH} ({len(all_members)} rows)")
-        await primary_client.send_file(
-            LEADS_RECIPIENT,
-            LEADS_CSV_PATH,
-            caption=f"Leads export — {len(all_members)} contacts\n{now_kyiv().strftime('%Y-%m-%d %H:%M')} Kyiv",
-        )
-        logger.info(f"Leads CSV sent to @{LEADS_RECIPIENT}")
+        caption = f"Leads export — {len(all_members)} contacts\n{now_kyiv().strftime('%Y-%m-%d %H:%M')} Kyiv"
+        for client in clients_list:
+            try:
+                await client.send_file(LEADS_RECIPIENT, LEADS_CSV_PATH, caption=caption)
+                logger.info(f"Leads CSV sent to @{LEADS_RECIPIENT}")
+                break
+            except Exception as file_err:
+                logger.warning(f"Could not send leads CSV via this client: {file_err}")
     except Exception as e:
-        logger.warning(f"Could not save/send leads CSV: {e}")
+        logger.warning(f"Could not save leads CSV: {e}")
 
     if not all_members:
         logger.info("No leads found this cycle.")
