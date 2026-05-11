@@ -51,3 +51,20 @@ class AccountManager:
         async with self._lock:
             from datetime import timedelta
             self._flood_until[phone] = datetime.now(tz=timezone.utc) + timedelta(seconds=PEER_FLOOD_COOLDOWN_SECONDS)
+
+    async def get_account_if_available(self, phone):
+        """Return account by phone if it has quota and is not in flood cooldown, else None."""
+        async with self._lock:
+            today = date.today()
+            now = datetime.now(tz=timezone.utc)
+            account = next((a for a in self._accounts if a["phone"] == phone), None)
+            if account is None:
+                return None
+            if self._dates[phone] != today:
+                self._counters[phone] = 0
+                self._dates[phone] = today
+            if phone in self._flood_until and now < self._flood_until[phone]:
+                return None
+            if self._counters[phone] >= MAX_MESSAGES_PER_DAY:
+                return None
+            return account

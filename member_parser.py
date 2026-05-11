@@ -128,7 +128,7 @@ async def _get_admin_ids(client, group) -> set:
         return set()
 
 
-async def parse_members(client, group, already_sent):
+async def parse_members(client, group, already_sent, parsed_by_phone=None):
     seen_ids: set = set()
     pending: dict = {}        # sender_id → member dict (passed basic filters)
     is_commercial: dict = {}  # sender_id → bool (has ≥1 commercial message)
@@ -155,13 +155,10 @@ async def parse_members(client, group, already_sent):
                 continue
 
             if sender.id in seen_ids:
-                # Already assessed this sender's basic filters.
-                # If they passed, check if this extra message adds commercial signal.
                 if sender.id in pending and not is_commercial.get(sender.id):
                     is_commercial[sender.id] = _has_commercial_intent(message.text or "")
                 continue
 
-            # ── First time we see this sender ──
             seen_ids.add(sender.id)
 
             if sender.id in admin_ids:
@@ -170,13 +167,14 @@ async def parse_members(client, group, already_sent):
                 continue
             if sender.deleted:
                 continue
-            if not sender.username:
-                continue
-            dedup_key = sender.username.lower()
+
+            # Users without username require access_hash routing — include them
+            # but tag with the parsing account so sender.py uses the right client.
+            dedup_key = sender.username.lower() if sender.username else f"id:{sender.id}"
             if dedup_key in already_sent:
                 continue
             if _is_prohibited(sender):
-                logger.debug(f"  SKIP @{sender.username}: prohibited keyword in profile")
+                logger.debug(f"  SKIP {'@' + sender.username if sender.username else sender.id}: prohibited keyword")
                 continue
 
             first = sender.first_name or ""
@@ -188,6 +186,7 @@ async def parse_members(client, group, already_sent):
                 "full_name": (first + " " + last).strip(),
                 "group_title": group_title,
                 "group_username": group_username,
+                "parsed_by_phone": parsed_by_phone,
             }
             is_commercial[sender.id] = _has_commercial_intent(message.text or "")
 

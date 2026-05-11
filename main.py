@@ -294,6 +294,7 @@ async def run_daily_cycle(clients):
     manager = AccountManager(ACCOUNTS, today_counts)
     csv_lock = asyncio.Lock()
     clients_list = list(clients.values())
+    clients_phones = list(clients.keys())
     primary_client = clients_list[0]  # first successfully connected account
     sent_count = 0
     skipped_count = 0
@@ -330,7 +331,8 @@ async def run_daily_cycle(clients):
     # ── Parse all groups in parallel, distributed across accounts ────────────
     logger.info(f"Parsing {len(groups)} groups in parallel across {len(clients_list)} account(s)...")
     parse_tasks = [
-        parse_members(clients_list[i % len(clients_list)], group, already_sent)
+        parse_members(clients_list[i % len(clients_list)], group, already_sent,
+                      clients_phones[i % len(clients_phones)])
         for i, group in enumerate(groups)
     ]
     parse_results = await asyncio.gather(*parse_tasks, return_exceptions=True)
@@ -394,12 +396,23 @@ async def run_daily_cycle(clients):
             await sleep_until_8am()
             already_sent = load_sent_usernames()
 
-        try:
-            account = await manager.get_active_account()
-        except AllAccountsExhaustedError:
-            logger.info(f"Daily limit reached. Sent {sent_count}, skipped {skipped_count}.")
-            await notifier.notify_daily_limit(sent_count, skipped_count)
-            return
+        has_username = bool(recipient.get("username"))
+        parsed_by = recipient.get("parsed_by_phone")
+
+        if has_username:
+            # Any available account can send to a @username
+            try:
+                account = await manager.get_active_account()
+            except AllAccountsExhaustedError:
+                logger.info(f"Daily limit reached. Sent {sent_count}, skipped {skipped_count}.")
+                await notifier.notify_daily_limit(sent_count, skipped_count)
+                return
+        else:
+            # No username — access_hash is account-specific, must use parsing account
+            account = await manager.get_account_if_available(parsed_by)
+            if account is None or account["phone"] not in clients:
+                skipped_count += 1
+                continue
 
         client = clients[account["phone"]]
         try:
