@@ -29,6 +29,7 @@ import asyncio
 import base64
 import csv
 import gzip
+import json
 import logging
 import os
 import signal
@@ -196,20 +197,62 @@ def make_client(account):
 async def connect_clients():
     clients = {}
     for account in ACCOUNTS:
-        session_file = os.path.join(SESSIONS_DIR, account["phone"].lstrip("+")) + ".session"
+        idx = account["label"].split("_")[1]
+        phone = account["phone"]
+        session_file = os.path.join(SESSIONS_DIR, phone.lstrip("+")) + ".session"
+        auth_code_env = f"TELEGRAM_AUTH_CODE_{idx}"
+        auth_state_file = os.path.join(SESSIONS_DIR, f"auth_pending_{idx}.json")
+        pending = os.environ.get(auth_code_env, "").strip()
+
+        # ── Two-step Railway auth ─────────────────────────────────────────────
+        # Step 1: Set TELEGRAM_AUTH_CODE_N=SEND → bot sends code to phone, saves hash
+        # Step 2: Set TELEGRAM_AUTH_CODE_N=<digits> → bot signs in with that code
+        if pending == "SEND":
+            try:
+                client = make_client(account)
+                await client.connect()
+                sent = await client.send_code_request(phone)
+                with open(auth_state_file, "w") as f:
+                    json.dump({"phone_code_hash": sent.phone_code_hash}, f)
+                logger.info(
+                    f"[AUTH STEP 1] Code sent to {phone}. "
+                    f"Now set {auth_code_env}=<the_code> in Railway dashboard → Save → redeploy."
+                )
+                await client.disconnect()
+            except Exception as e:
+                logger.error(f"Failed to send code for {account['label']}: {e}")
+            continue  # account not connected yet
+
+        if pending.isdigit() and os.path.exists(auth_state_file):
+            try:
+                with open(auth_state_file) as f:
+                    state = json.load(f)
+                client = make_client(account)
+                await client.connect()
+                await client.sign_in(phone, pending, phone_code_hash=state["phone_code_hash"])
+                os.remove(auth_state_file)
+                clients[phone] = client
+                logger.info(f"[AUTH STEP 2] Connected: {account['label']} — session created on Railway IP")
+                continue
+            except Exception as e:
+                logger.error(f"Failed to sign in {account['label']} with provided code: {e}")
+                continue
+
+        # ── Normal connect (session already exists) ───────────────────────────
         if not os.path.exists(session_file):
             logger.error(
-                f"Session file missing for {account['label']}: {session_file}\n"
-                f"  → Authenticate locally first: python3 main.py"
+                f"Session file missing for {account['label']}.\n"
+                f"  → Set {auth_code_env}=SEND in Railway dashboard, redeploy, then set the code."
             )
             continue
         try:
             client = make_client(account)
-            await client.start(phone=account["phone"])
-            clients[account["phone"]] = client
-            logger.info(f"Connected: {account['label']} ({account['phone']})")
+            await client.start(phone=phone)
+            clients[phone] = client
+            logger.info(f"Connected: {account['label']} ({phone})")
         except Exception as e:
             logger.error(f"Failed to connect {account['label']}: {e}")
+
     if not clients:
         logger.error("No accounts connected — exiting.")
         sys.exit(1)
