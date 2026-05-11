@@ -1,0 +1,8 @@
+sessions/*.session
+sessions/*.session-journal
+sent.csv
+approved_groups.json
+__pycache__/
+*.pyc
+.env
+.DS_Store

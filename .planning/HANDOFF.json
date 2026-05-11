@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-11T08:09:13.565Z",
+  "source": "auto-postool",
+  "partial": false,
+  "phase": null,
+  "phase_name": null,
+  "phase_dir": null,
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
+  "status": "auto-checkpoint",
+  "completed_tasks": [],
+  "remaining_tasks": [],
+  "blockers": [],
+  "human_actions_pending": [],
+  "decisions": [],
+  "uncommitted_files": [
+    {
+      "status": "??",
+      "path": ".gitignore"
+    },
+    {
+      "status": "??",
+      "path": ".planning/"
+    },
+    {
+      "status": "??",
+      "path": "Procfile"
+    },
+    {
+      "status": "??",
+      "path": "auth3.py"
+    },
+    {
+      "status": "??",
+      "path": "group_finder.py"
+    },
+    {
+      "status": "??",
+      "path": "requirements.txt"
+    },
+    {
+      "status": "??",
+      "path": "runtime.txt"
+    },
+    {
+      "status": "??",
+      "path": "scout.py"
+    },
+    {
+      "status": "??",
+      "path": "sessions/"
+    }
+  ],
+  "next_action": null,
+  "context_notes": "Recent commits:\n267224e Decode gzip+base64 sessions from env vars at startup\nc40b59a Lower MAX_MESSAGES_PER_DAY to 10 for conservative anti-flood sending\nf3a7fae Increase send delay to 10-15 min and add message rotation with 3 variants\n8ff94b7 Fix PeerFloodError exhausting accounts for the full day and Invalid Peer errors from no-username users\nc1eb180 Initial commit"
+}
