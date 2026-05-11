@@ -265,8 +265,8 @@ async def connect_clients():
         logger.error("No accounts connected — exiting.")
         sys.exit(1)
 
-    # Set notifier client and report startup
-    notifier.set_client(list(clients.values())[0])
+    # Register all clients with notifier — it tries each in order if one fails
+    notifier.set_clients(list(clients.values()))
     connected = [a["label"] for a in ACCOUNTS if a["phone"] in clients]
     await notifier.notify_startup(connected, failed)
 

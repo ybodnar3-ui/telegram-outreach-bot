@@ -14,23 +14,26 @@ logger = logging.getLogger(__name__)
 
 NOTIFY_USERNAME = "alegtudasyda"
 
-_client = None
+_clients: list = []
+
+
+def set_clients(clients: list):
+    """Register all connected Telethon clients. Notifier tries each in order."""
+    global _clients
+    _clients = list(clients)
 
 
 def set_client(client):
-    """Register the Telethon client to use for sending notifications."""
-    global _client
-    _client = client
+    """Register a single client (kept for backwards compatibility)."""
+    set_clients([client])
 
 
-async def _send(text: str):
-    if _client is None:
-        logger.warning("Notifier: no client set, skipping notification")
-        return
+async def _try_send(client, text: str) -> bool:
+    """Try to send via one client. Returns True on success."""
     for attempt in range(3):
         try:
-            await _client.send_message(NOTIFY_USERNAME, text, parse_mode="md")
-            return
+            await client.send_message(NOTIFY_USERNAME, text, parse_mode="md")
+            return True
         except FloodWaitError as e:
             wait = max(e.seconds, 5)
             logger.warning(f"Notifier: FloodWait {wait}s, retrying...")
@@ -39,10 +42,19 @@ async def _send(text: str):
             logger.warning("Notifier: FloodError (too many requests), waiting 60s...")
             await asyncio.sleep(60)
         except Exception as e:
-            logger.warning(f"Notifier: failed to send message: {e}")
-            if attempt < 2:
-                await asyncio.sleep(30)
-    logger.warning("Notifier: gave up after 3 attempts")
+            logger.warning(f"Notifier: client failed ({e}), will try next account")
+            return False
+    return False
+
+
+async def _send(text: str):
+    if not _clients:
+        logger.warning("Notifier: no clients set, skipping notification")
+        return
+    for client in _clients:
+        if await _try_send(client, text):
+            return
+    logger.warning("Notifier: all clients failed, notification not delivered")
 
 
 async def notify_startup(accounts_connected: list, accounts_failed: list):
