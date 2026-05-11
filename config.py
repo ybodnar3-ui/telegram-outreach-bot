@@ -112,7 +112,7 @@ SEARCH_KEYWORDS = [
 # DELAY_*: random sleep between DMs — mimics human behavior, avoids spam detection.
 # Never set DELAY_MIN below 30 seconds.
 
-MAX_MESSAGES_PER_DAY = 30
+MAX_MESSAGES_PER_DAY = 10
 
 DELAY_MIN_SECONDS = 600   # 10 min
 DELAY_MAX_SECONDS = 900   # 15 min
