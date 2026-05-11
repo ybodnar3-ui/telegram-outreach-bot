@@ -209,6 +209,10 @@ async def connect_clients():
         # Step 2: Set TELEGRAM_AUTH_CODE_N=<digits> → bot signs in with that code
         if pending == "SEND":
             try:
+                # Remove stale/invalid session so Telegram issues a fresh code
+                if os.path.exists(session_file):
+                    os.remove(session_file)
+                    logger.info(f"Removed stale session for {account['label']} before re-auth")
                 client = make_client(account)
                 await client.connect()
                 sent = await client.send_code_request(phone)
