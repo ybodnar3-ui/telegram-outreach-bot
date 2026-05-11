@@ -5,7 +5,10 @@ All key bot events (startup, errors, daily summary, PeerFlood, etc.)
 are reported to NOTIFY_USERNAME so the owner can monitor without checking logs.
 """
 
+import asyncio
 import logging
+
+from telethon.errors import FloodWaitError
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +27,18 @@ async def _send(text: str):
     if _client is None:
         logger.warning("Notifier: no client set, skipping notification")
         return
-    try:
-        await _client.send_message(NOTIFY_USERNAME, text, parse_mode="md")
-    except Exception as e:
-        logger.warning(f"Notifier: failed to send message: {e}")
+    for attempt in range(3):
+        try:
+            await _client.send_message(NOTIFY_USERNAME, text, parse_mode="md")
+            return
+        except FloodWaitError as e:
+            logger.warning(f"Notifier: FloodWait {e.seconds}s, retrying...")
+            await asyncio.sleep(e.seconds)
+        except Exception as e:
+            logger.warning(f"Notifier: failed to send message: {e}")
+            if attempt < 2:
+                await asyncio.sleep(10)
+    logger.warning("Notifier: gave up after 3 attempts")
 
 
 async def notify_startup(accounts_connected: list, accounts_failed: list):
