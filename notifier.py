@@ -9,7 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-NOTIFY_USERNAME = "Alekseyofmanager"
+NOTIFY_USERNAME = "alegtudasyda"
 
 _client = None
 

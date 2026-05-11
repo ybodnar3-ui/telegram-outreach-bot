@@ -352,7 +352,7 @@ async def run_daily_cycle(clients):
     logger.info(f"Total leads collected: {len(all_members)}")
 
     # Save full lead database to CSV and send to owner via Telegram
-    LEADS_RECIPIENT = "Alekseyofmanager"
+    LEADS_RECIPIENT = "alegtudasyda"
     try:
         with open(LEADS_CSV_PATH, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.DictWriter(f, fieldnames=["username", "full_name", "group_title", "group_username", "telegram_link"])
