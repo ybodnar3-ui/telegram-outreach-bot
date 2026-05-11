@@ -340,7 +340,8 @@ async def run_daily_cycle(clients):
 
     logger.info(f"Total leads collected: {len(all_members)}")
 
-    # Save full lead database to CSV for export/review
+    # Save full lead database to CSV and send to owner via Telegram
+    LEADS_RECIPIENT = "Alekseyofmanager"
     try:
         with open(LEADS_CSV_PATH, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.DictWriter(f, fieldnames=["username", "full_name", "group_title", "group_username", "telegram_link"])
@@ -353,9 +354,15 @@ async def run_daily_cycle(clients):
                     "group_username": m.get("group_username", ""),
                     "telegram_link": f"https://t.me/{m['username']}" if m.get("username") else "",
                 })
-        logger.info(f"Leads saved to {LEADS_CSV_PATH}")
+        logger.info(f"Leads saved to {LEADS_CSV_PATH} ({len(all_members)} rows)")
+        await primary_client.send_file(
+            LEADS_RECIPIENT,
+            LEADS_CSV_PATH,
+            caption=f"Leads export — {len(all_members)} contacts\n{now_kyiv().strftime('%Y-%m-%d %H:%M')} Kyiv",
+        )
+        logger.info(f"Leads CSV sent to @{LEADS_RECIPIENT}")
     except Exception as e:
-        logger.warning(f"Could not save leads CSV: {e}")
+        logger.warning(f"Could not save/send leads CSV: {e}")
 
     if not all_members:
         logger.info("No leads found this cycle.")
