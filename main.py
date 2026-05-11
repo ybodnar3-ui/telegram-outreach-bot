@@ -44,6 +44,7 @@ from account_manager import AccountManager, AllAccountsExhaustedError
 from group_finder import find_groups
 from member_parser import parse_members
 from sender import send_dm
+import notifier
 
 # ─── LOGGING ─────────────────────────────────────────────────────────────────
 
@@ -196,6 +197,7 @@ def make_client(account):
 
 async def connect_clients():
     clients = {}
+    failed = []
     for account in ACCOUNTS:
         idx = account["label"].split("_")[1]
         phone = account["phone"]
@@ -248,6 +250,7 @@ async def connect_clients():
                 f"Session file missing for {account['label']}.\n"
                 f"  → Set {auth_code_env}=SEND in Railway dashboard, redeploy, then set the code."
             )
+            failed.append(account["label"])
             continue
         try:
             client = make_client(account)
@@ -256,10 +259,18 @@ async def connect_clients():
             logger.info(f"Connected: {account['label']} ({phone})")
         except Exception as e:
             logger.error(f"Failed to connect {account['label']}: {e}")
+            failed.append(account["label"])
+            failed.append(account["label"])
 
     if not clients:
         logger.error("No accounts connected — exiting.")
         sys.exit(1)
+
+    # Set notifier client and report startup
+    notifier.set_client(list(clients.values())[0])
+    connected = [a["label"] for a in ACCOUNTS if a["phone"] in clients]
+    await notifier.notify_startup(connected, failed)
+
     return clients
 
 
@@ -380,6 +391,7 @@ async def run_daily_cycle(clients):
             account = await manager.get_active_account()
         except AllAccountsExhaustedError:
             logger.info(f"Daily limit reached. Sent {sent_count}, skipped {skipped_count}.")
+            await notifier.notify_daily_limit(sent_count, skipped_count)
             return
 
         client = clients[account["phone"]]
@@ -395,6 +407,7 @@ async def run_daily_cycle(clients):
         except PeerFloodError:
             logger.warning(f"PeerFlood on {account['label']} — cooling down for 1h")
             await manager.mark_flood(account["phone"])
+            await notifier.notify_peer_flood(account["label"])
         except Exception as e:
             logger.error(
                 f"Unexpected error sending to @{recipient.get('username', '?')}: {e}",
@@ -402,6 +415,7 @@ async def run_daily_cycle(clients):
             )
 
     logger.info(f"Daily cycle done. Sent: {sent_count}, skipped: {skipped_count}.")
+    await notifier.notify_cycle_done(sent_count, skipped_count)
 
 
 # ─── MAIN LOOP ───────────────────────────────────────────────────────────────
@@ -432,6 +446,7 @@ async def main():
             await run_daily_cycle(clients)
         except Exception as e:
             logger.error(f"Unhandled error in daily cycle: {e}", exc_info=True)
+            await notifier.notify_error("daily cycle", e)
             logger.info(f"Cooling down {CYCLE_ERROR_SLEEP}s before retry...")
             await asyncio.sleep(CYCLE_ERROR_SLEEP)
             continue  # retry cycle, don't sleep until 08:00
