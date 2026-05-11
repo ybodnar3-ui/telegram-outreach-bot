@@ -260,7 +260,6 @@ async def connect_clients():
         except Exception as e:
             logger.error(f"Failed to connect {account['label']}: {e}")
             failed.append(account["label"])
-            failed.append(account["label"])
 
     if not clients:
         logger.error("No accounts connected — exiting.")

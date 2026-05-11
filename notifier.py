@@ -8,7 +8,7 @@ are reported to NOTIFY_USERNAME so the owner can monitor without checking logs.
 import asyncio
 import logging
 
-from telethon.errors import FloodWaitError
+from telethon.errors import FloodWaitError, FloodError
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +32,16 @@ async def _send(text: str):
             await _client.send_message(NOTIFY_USERNAME, text, parse_mode="md")
             return
         except FloodWaitError as e:
-            logger.warning(f"Notifier: FloodWait {e.seconds}s, retrying...")
-            await asyncio.sleep(e.seconds)
+            wait = max(e.seconds, 5)
+            logger.warning(f"Notifier: FloodWait {wait}s, retrying...")
+            await asyncio.sleep(wait)
+        except FloodError:
+            logger.warning("Notifier: FloodError (too many requests), waiting 60s...")
+            await asyncio.sleep(60)
         except Exception as e:
             logger.warning(f"Notifier: failed to send message: {e}")
             if attempt < 2:
-                await asyncio.sleep(10)
+                await asyncio.sleep(30)
     logger.warning("Notifier: gave up after 3 attempts")
 
 
